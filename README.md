@@ -541,42 +541,65 @@ Common HTTP status codes:
 - PostgreSQL 12 or later
 - Git
 
-## Installation
+## Deployment
+
+### Docker Deployment (Recommended)
+
+The easiest way to deploy the application is using Docker Compose:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/vainnor/vatsim-stats.git
+git clone https://github.com/yourusername/vatsim-stats.git
 cd vatsim-stats
 ```
 
-2. Install dependencies:
+2. Set your master API key (optional, defaults to 'default_master_key'):
 ```bash
-go mod download
+export MASTER_API_KEY=your_secure_master_key
 ```
 
-3. Copy the example environment file and configure it:
+3. Start the services:
+```bash
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:8080`.
+
+### Manual Deployment
+
+If you prefer to run the application without Docker:
+
+1. Install prerequisites:
+   - Go 1.22 or later
+   - PostgreSQL 12 or later
+   - Docker & Docker Compose (If using Docker)
+
+2. Clone the repository:
+```bash
+git clone https://github.com/yourusername/vatsim-stats.git
+cd vatsim-stats
+```
+
+3. Copy the example environment file:
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file with your PostgreSQL credentials and desired settings:
-```bash
+4. Edit the `.env` file with your PostgreSQL credentials and desired settings:
+```env
+# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=vatsim_stats
-DB_USER=your_username
-DB_PASSWORD=your_password
-UPDATE_INTERVAL=15
+DB_USER=username
+DB_PASSWORD=password
+DB_NAME=dbname
+
+# API Configuration
+MASTER_API_KEY=your_secure_master_key    # Required for API key management
+UPDATE_INTERVAL=15                        # Data update interval in minutes
 ```
 
-## Usage
-
-1. Create the PostgreSQL database:
-```bash
-createdb vatsim_stats
-```
-
-2. Run the application:
+5. Run the application:
 ```bash
 go run main.go
 ```
