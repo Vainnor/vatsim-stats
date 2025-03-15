@@ -40,6 +40,14 @@ func InitDB() error {
 func createTables() error {
 	queries := []string{
 		// Core tables
+		`CREATE TABLE IF NOT EXISTS api_keys (
+			id SERIAL PRIMARY KEY,
+			key VARCHAR(64) NOT NULL UNIQUE,
+			description TEXT,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+			last_used_at TIMESTAMP WITH TIME ZONE,
+			is_active BOOLEAN NOT NULL DEFAULT true
+		)`,
 		`CREATE TABLE IF NOT EXISTS snapshots (
 			id SERIAL PRIMARY KEY,
 			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
