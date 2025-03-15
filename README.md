@@ -2,14 +2,119 @@
 
 A service that collects and stores VATSIM network statistics, providing a REST API to access historical connection data and statistics.
 
+## Configuration
+
+The service requires the following environment variables:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=username
+DB_PASSWORD=password
+DB_NAME=dbname
+
+# API Configuration
+MASTER_API_KEY=your-secure-master-key    # Required for API key management
+UPDATE_INTERVAL=15                        # Data update interval in minutes
+```
+
+## Rate Limiting and API Keys
+
+The API implements rate limiting to ensure fair usage. By default, requests are limited to:
+- 100 requests per 5-minute window per IP address
+- Rate limit headers are included in responses:
+  - `X-RateLimit-Limit`: Maximum requests per window
+  - `X-RateLimit-Remaining`: Remaining requests in current window
+  - `X-RateLimit-Reset`: Time when the current window resets (RFC3339 format)
+
+### API Key Authentication
+
+You can bypass rate limiting by using an API key. Include your API key in the `Authorization` header:
+
+```http
+Authorization: your-api-key-here
+```
+
+### API Key Management
+
+API keys can be managed using the following endpoints. All management endpoints require the master API key for authentication.
+
+#### Create API Key
+```http
+POST /api/keys
+Authorization: master-key-here
+Content-Type: application/json
+
+{
+    "description": "Key description here"
+}
+```
+
+**Response:**
+```json
+{
+    "id": 1,
+    "key": "generated-api-key",
+    "description": "Key description here",
+    "created_at": "2024-03-15T12:00:00Z",
+    "is_active": true
+}
+```
+
+#### List API Keys
+```http
+GET /api/keys
+Authorization: master-key-here
+```
+
+**Response:**
+```json
+[
+    {
+        "id": 1,
+        "key": "api-key-1",
+        "description": "Key description",
+        "created_at": "2024-03-15T12:00:00Z",
+        "last_used_at": "2024-03-15T13:00:00Z",
+        "is_active": true
+    }
+]
+```
+
+#### Delete API Key
+```http
+DELETE /api/keys
+Authorization: master-key-here
+Content-Type: application/json
+
+{
+    "id": 1
+}
+```
+
 ## Available Endpoints
 
-- `/membership/{cid}/{type}` - Get member connection history (type: pilot, atc, or atis)
-- `/airports/{icao}/traffic` - Get current traffic information for a specific airport
-- `/flights/search` - Search active flights with optional filters
-- `/network/stats` - Get current network-wide statistics
-- `/routes/popular` - Get most frequently flown routes
-- `/routes/{origin}/{destination}/stats` - Get statistics for a specific route
+All endpoints (except API key management) are rate-limited and require the `/api` prefix.
+
+### API Key Management (No Rate Limit)
+- `/api/keys` - Create new API key (POST), List all API keys (GET), or Delete API key (DELETE)
+
+### Data Endpoints (Rate Limited)
+- `/api/membership/{cid}/{type}` - Get member connection history (type: pilot, atc, or atis)
+- `/api/airports/{icao}/traffic` - Get current traffic information for a specific airport
+- `/api/flights/search` - Search active flights with optional filters
+- `/api/network/stats` - Get current network-wide statistics
+- `/api/routes/popular` - Get most frequently flown routes
+- `/api/routes/{origin}/{destination}/stats` - Get statistics for a specific route
+
+### Analytics Endpoints (Rate Limited)
+- `/api/analytics/network-stats` - Get network-wide statistics
+- `/api/analytics/trends` - Get network trends (daily, weekly, monthly)
+
+### Debug & Status (Rate Limited)
+- `/api/membership/{cid}/debug` - Get debug information for a specific pilot
+- `/api/collector/stats` - Get collector statistics
 
 ## API Documentation
 
@@ -17,7 +122,7 @@ A service that collects and stores VATSIM network statistics, providing a REST A
 
 #### Get Member Connection History
 ```http
-GET /membership/{cid}/{type}
+GET /api/membership/{cid}/{type}
 ```
 
 Returns historical connection data and statistics for a specific VATSIM member.
@@ -29,7 +134,7 @@ Returns historical connection data and statistics for a specific VATSIM member.
 
 ##### Pilot Connections
 ```http
-GET /membership/{cid}/pilot
+GET /api/membership/{cid}/pilot
 ```
 
 **Response:**
@@ -67,7 +172,7 @@ GET /membership/{cid}/pilot
 
 ##### ATC Connections
 ```http
-GET /membership/{cid}/atc
+GET /api/membership/{cid}/atc
 ```
 
 **Response:**
@@ -102,7 +207,7 @@ GET /membership/{cid}/atc
 
 ##### ATIS Connections
 ```http
-GET /membership/{cid}/atis
+GET /api/membership/{cid}/atis
 ```
 
 **Response:**
@@ -132,7 +237,7 @@ GET /membership/{cid}/atis
 
 #### Get Airport Traffic
 ```http
-GET /airports/{icao}/traffic
+GET /api/airports/{icao}/traffic
 ```
 
 Returns current traffic information for a specific airport, including active controllers, ATIS information, and flight movements.
@@ -197,7 +302,7 @@ Returns current traffic information for a specific airport, including active con
 
 #### Search Active Flights
 ```http
-GET /flights/search
+GET /api/flights/search
 ```
 
 Search for active flights based on various criteria.
@@ -236,7 +341,7 @@ Search for active flights based on various criteria.
 
 #### Get Network Statistics
 ```http
-GET /network/stats
+GET /api/network/stats
 ```
 
 Returns current network-wide statistics.
@@ -276,7 +381,7 @@ Returns current network-wide statistics.
 
 #### Get Pilot Debug Information
 ```http
-GET /membership/{cid}/debug
+GET /api/membership/{cid}/debug
 ```
 
 Returns debug information for a specific pilot.
@@ -300,7 +405,7 @@ Returns debug information for a specific pilot.
 
 #### Get Collector Statistics
 ```http
-GET /collector/stats
+GET /api/collector/stats
 ```
 
 Returns current collector statistics.
@@ -320,7 +425,7 @@ Returns current collector statistics.
 
 #### Get Popular Routes
 ```http
-GET /routes/popular
+GET /api/routes/popular
 ```
 
 Returns the most frequently flown routes in the last 24 hours.
@@ -359,7 +464,7 @@ Returns the most frequently flown routes in the last 24 hours.
 
 #### Get Route Statistics
 ```http
-GET /routes/{origin}/{destination}/stats
+GET /api/routes/{origin}/{destination}/stats
 ```
 
 Returns detailed statistics for a specific route.
@@ -420,15 +525,8 @@ Common HTTP status codes:
 - 200: Success
 - 400: Bad Request
 - 404: Not Found
+- 429: Too Many Requests
 - 500: Internal Server Error
-
-## Rate Limiting
-
-The API is rate limited to prevent abuse. Limits are:
-- 60 requests per minute per IP address
-- 1000 requests per hour per IP address
-
-When rate limited, the API will return a 429 status code with a message indicating when the limit will reset.
 
 ## Features
 
@@ -462,7 +560,7 @@ cp .env.example .env
 ```
 
 Edit the `.env` file with your PostgreSQL credentials and desired settings:
-```
+```bash
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=vatsim_stats
@@ -483,15 +581,40 @@ createdb vatsim_stats
 go run main.go
 ```
 
-The application will start collecting VATSIM data and storing it in your PostgreSQL database.
-
 ## Database Schema
 
-The application creates three main tables:
+The application uses several tables to store and manage VATSIM network data:
 
+### Core Tables
 - `snapshots`: Stores general network information for each data update
+- `facilities`: Stores facility information (e.g., FSS, DEL, GND, TWR)
+- `ratings`: Stores controller rating information
+- `pilot_ratings`: Stores pilot rating information
+- `military_ratings`: Stores military rating information
 - `pilots`: Stores pilot information linked to snapshots
+- `controllers`: Stores controller information linked to snapshots
 - `flight_plans`: Stores flight plan information linked to pilots
+- `connections`: Stores historical connection data for pilots and controllers
+- `api_keys`: Stores API keys for rate limit bypassing
+
+### Statistics Tables
+- `atc_stats`: Stores controller statistics (aircraft tracked, handoffs, etc.)
+- `pilot_stats`: Stores pilot statistics (flight time, rating, etc.)
+- `pilot_total_stats`: Stores aggregated pilot statistics
+- `atis_stats`: Stores ATIS connection statistics
+- `airport_stats`: Stores airport movement statistics
+- `network_stats`: Stores network-wide statistics
+- `server_stats`: Stores per-server statistics
+- `rating_stats`: Stores statistics by rating
+- `aircraft_stats`: Stores statistics by aircraft type
+- `route_stats`: Stores route usage statistics
+
+### Trend Tables
+- `network_trends_daily`: Stores daily network statistics
+- `network_trends_weekly`: Stores weekly network statistics
+- `network_trends_monthly`: Stores monthly network statistics
+
+Each table includes appropriate indexes and foreign key relationships to maintain data integrity and query performance.
 
 ## Contributing
 

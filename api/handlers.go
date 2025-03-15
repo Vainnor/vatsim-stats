@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"github.com/vainnor/vatsim-stats/db"
-	"github.com/vainnor/vatsim-stats/types"
 )
 
 func GetMembershipHandler(w http.ResponseWriter, r *http.Request) {
@@ -227,11 +226,43 @@ func getATISStats(connID int64) (*ATISStats, error) {
 	return stats, nil
 }
 
-// Add collector stats handler
-func GetCollectorStats(collector interface{ GetStats() types.CollectionStats }) http.HandlerFunc {
+// GetCollectorStats returns the current collector statistics
+func GetCollectorStats(collector Collector) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		stats := struct {
+			LastUpdate      time.Time `json:"last_update"`
+			TotalSnapshots  int       `json:"total_snapshots"`
+			ActivePilots    int       `json:"active_pilots"`
+			ProcessedPilots int       `json:"processed_pilots"`
+			StartTime       time.Time `json:"start_time"`
+			CurrentPilots   int       `json:"current_pilots"`
+			CurrentATCs     int       `json:"current_atcs"`
+		}{
+			LastUpdate: time.Now(),
+		}
+
+		// Query the database for actual stats
+		err := db.DB.QueryRow(`
+			SELECT 
+				COUNT(*) as total_snapshots,
+				(SELECT COUNT(*) FROM pilots WHERE last_updated > NOW() - INTERVAL '15 minutes') as active_pilots,
+				(SELECT COUNT(*) FROM pilots) as processed_pilots,
+				MIN(timestamp) as start_time
+			FROM snapshots
+		`).Scan(&stats.TotalSnapshots, &stats.ActivePilots, &stats.ProcessedPilots, &stats.StartTime)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Database error: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Get current data from collector
+		collectorStats := collector.GetStats()
+		stats.CurrentPilots = collectorStats.ActivePilots
+		stats.CurrentATCs = collectorStats.ActiveATCs
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(collector.GetStats())
+		json.NewEncoder(w).Encode(stats)
 	}
 }
 
