@@ -576,7 +576,7 @@ If you prefer to run the application without Docker:
 
 2. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/vatsim-stats.git
+git clone https://github.com/yourusername/vatsim-stats-api.git
 cd vatsim-stats
 ```
 
